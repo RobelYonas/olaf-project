@@ -10,7 +10,9 @@ from agent_3_harness import run_agent_3
 def run_git_command(args: list[str], cwd: Path) -> str:
     res = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
     if res.returncode != 0:
-        raise RuntimeError(f"Git command failed: {' '.join(args)}\n{res.stderr}")
+        raise RuntimeError(
+            f"Git command failed: git {' '.join(args)}\nStdout: {res.stdout}\nStderr: {res.stderr}"
+        )
     return res.stdout.strip()
 
 
@@ -21,9 +23,10 @@ def execute_bounded_tick(spec_id: str, repo_root: Path) -> None:
 
     print(f"=== [Tick Start] Executing OAIF bounded unit of work for {spec_id} ===")
 
-    # 1. Ensure Git identity is established for the audit trail
-    run_git_command(["config", "user.name", "OAIF Ephemeral Worker"], cwd=repo_root)
-    run_git_command(["config", "user.email", "worker@oaif.local"], cwd=repo_root)
+    # 1. Global Git configuration inside the ephemeral container
+    run_git_command(["config", "--global", "--add", "safe.directory", "*"], cwd=repo_root)
+    run_git_command(["config", "--global", "user.name", "OAIF Ephemeral Worker"], cwd=repo_root)
+    run_git_command(["config", "--global", "user.email", "worker@oaif.local"], cwd=repo_root)
 
     # 2. Agent 1: Informal Prose Reasoner
     print("\n--- Running Agent 1 (Prose Informal Reasoner) ---")
@@ -40,18 +43,19 @@ def execute_bounded_tick(spec_id: str, repo_root: Path) -> None:
     eval_path = run_agent_3(spec_id, repo_root)
     print(f"Agent 3 generated: {eval_path}")
 
-    # 5. Git-Ops Audit Trail: Stage and commit all generated artifacts
+    # 5. Git-Ops Audit Trail: Stage artifacts and verify cached changes
     print("\n--- Finalizing Git-Ops Audit Commit ---")
     run_git_command(["add", "formalizations/", "agent_configs/skills/"], cwd=repo_root)
 
-    status = run_git_command(["status", "--porcelain"], cwd=repo_root)
-    if status:
+    # Check specifically for staged changes ready to be committed
+    staged_changes = run_git_command(["diff", "--cached", "--name-only"], cwd=repo_root)
+    if staged_changes:
         commit_msg = f"audit({spec_id}): complete formalization loop and consistency evaluation"
         run_git_command(["commit", "-m", commit_msg], cwd=repo_root)
         commit_hash = run_git_command(["rev-parse", "--short", "HEAD"], cwd=repo_root)
         print(f"Committed tick artifacts to Git audit trail: [{commit_hash}] {commit_msg}")
     else:
-        print("No filesystem changes detected; working tree clean.")
+        print("Audit trail is already up to date; no changes to commit.")
 
     print(f"=== [Tick Complete] Worker finished bounded unit of work for {spec_id} ===")
 
@@ -61,4 +65,5 @@ if __name__ == "__main__":
     parser.add_argument("--spec-id", type=str, required=True, help="Target spec ID")
     parser.add_argument("--repo-root", type=str, default=".", help="Root of Git repository")
     args = parser.parse_args()
+
     execute_bounded_tick(args.spec_id, Path(args.repo_root).resolve())
