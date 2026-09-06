@@ -1,0 +1,10 @@
+[project]
+name = "olaf-project"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "boto3>=1.43.89",
+    "hypothesis>=6.167.1",
+    "pydantic>=2.13.5",
+    "pytest>=9.1.1",
+]

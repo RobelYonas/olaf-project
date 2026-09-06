@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: oaif-orchestrator-tick
+spec:
+  schedule: "*/10 * * * *"  # Fires a tick every 10 minutes
+  concurrencyPolicy: Forbid  # Never run concurrent ticks to avoid Git race conditions
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300  # Hard timeout: 5 minutes max per tick
+      backoffLimit: 1             # Do not continuously retry failed agents
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: oaif-worker
+              image: oaif-agent:dev
+              imagePullPolicy: IfNotPresent
+              args: ["--spec-id", "SPEC-001", "--repo-root", "/workspace"]
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "250m"
+                limits:
+                  memory: "512Mi"   # Strict boundary defense
+                  cpu: "500m"
+              volumeMounts:
+                - name: shared-repo
+                  mountPath: /workspace
+          volumes:
+            - name: shared-repo
+              persistentVolumeClaim:
+                claimName: oaif-git-repo-pvc
