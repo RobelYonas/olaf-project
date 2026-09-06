@@ -3,17 +3,25 @@ kind: CronJob
 metadata:
   name: oaif-orchestrator-tick
 spec:
-  schedule: "*/10 * * * *"  # Fires a tick every 10 minutes
-  concurrencyPolicy: Forbid  # Never run concurrent ticks to avoid Git race conditions
+  schedule: "*/10 * * * *"  # Scheduled tick fires every 10 minutes
+  concurrencyPolicy: Forbid  # Prevents overlapping ticks and Git race conditions
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
       activeDeadlineSeconds: 300  # Hard timeout: 5 minutes max per tick
-      backoffLimit: 1             # Do not continuously retry failed agents
+      backoffLimit: 1
       template:
         spec:
           restartPolicy: Never
+          initContainers:
+            - name: seed-git-repo
+              image: oaif-agent:dev
+              imagePullPolicy: IfNotPresent
+              command: ["sh", "-c", "if [ ! -d /workspace/.git ]; then echo 'Seeding shared PVC from image...'; cp -a /app/. /workspace/; fi"]
+              volumeMounts:
+                - name: shared-repo
+                  mountPath: /workspace
           containers:
             - name: oaif-worker
               image: oaif-agent:dev
@@ -24,7 +32,7 @@ spec:
                   memory: "256Mi"
                   cpu: "250m"
                 limits:
-                  memory: "512Mi"   # Strict boundary defense
+                  memory: "512Mi"   # Strict defense against recursive generation or reward hacking
                   cpu: "500m"
               volumeMounts:
                 - name: shared-repo

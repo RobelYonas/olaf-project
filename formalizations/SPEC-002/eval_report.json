@@ -10,12 +10,12 @@
     "reasoning": 0.9,
     "argumentation": 0.88,
     "evidence_integration": 0.92,
-    "uncertainty_resolution": 0.85
+    "uncertainty_resolution": 0.5
   },
   "metrics": {
-    "informal_baseline_quality": 0.9,
-    "formal_executable_quality": 1.0,
-    "formal_minus_informal_delta": 0.1
+    "informal_baseline_quality": 0.83,
+    "formal_executable_quality": 0.98,
+    "formal_minus_informal_delta": 0.15
   },
   "self_directed_skill_evolution": {
     "candidate_mutations": [

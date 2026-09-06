@@ -10,20 +10,35 @@ def extract_clauses_from_prose_analysis(prose_md: str) -> list[str]:
     return re.findall(r"Clause `(CLS-\d+)`", prose_md)
 
 
-def extract_tests_and_invariants(model_code: str) -> list[str]:
-    """Finds test functions and assertions verifying the formal model."""
-    tests = re.findall(r"def (test_\w+)\(", model_code)
-    assertions = re.findall(r"assert (.+)", model_code)
-    return tests + assertions
+def extract_clause_references(model_code: str) -> list[str]:
+    """Finds clause IDs the formal model explicitly claims to enforce (via `# Clause: CLS-XXX` tags)."""
+    return re.findall(r"Clause:\s*(CLS-\d+)", model_code)
+
+
+def extract_declared_spec_id(model_code: str) -> str | None:
+    """Reads the spec_id Agent 2's model claims to be a reference model for."""
+    match = re.search(r"Reference Model for (\S+)", model_code)
+    return match.group(1) if match else None
 
 
 def compute_tri_consistency_evaluation(spec_id: str, prose_text: str, model_code: str) -> Dict[str, Any]:
     clauses = extract_clauses_from_prose_analysis(prose_text)
-    verification_targets = extract_tests_and_invariants(model_code)
-    
+    referenced_clauses = set(extract_clause_references(model_code))
+
     # 1. Clausal Conformance & Coverage
-    # Check if clauses identified in Agent 1's analysis map to logic in Agent 2's model
-    matched_clauses = [c for c in clauses if any(c.lower().replace("-", "") in v.lower() for v in verification_targets) or len(verification_targets) >= len(clauses)]
+    # Check if clauses identified in Agent 1's analysis are actually tagged as
+    # enforced within Agent 2's model. Clause IDs (CLS-001, CLS-002, ...) are
+    # numbered sequentially per spec by Agent 1, so they are NOT globally
+    # unique -- a model synthesized for the wrong spec can still contain
+    # matching clause IDs by coincidence. Guard against that by also requiring
+    # the model to declare itself as being for this exact spec_id; a mismatch
+    # (or a model with no clause traceability at all) correctly scores near
+    # zero, rather than being rubber-stamped by incidental clause-count overlap.
+    declared_spec_id = extract_declared_spec_id(model_code)
+    if declared_spec_id != spec_id:
+        matched_clauses = []
+    else:
+        matched_clauses = [c for c in clauses if c in referenced_clauses]
     conformance_score = len(matched_clauses) / len(clauses) if clauses else 1.0
 
     # 2. Tri-Consistency Dimension Scoring (Normalized 0.0 - 1.0)

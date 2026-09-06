@@ -23,31 +23,37 @@ def execute_bounded_tick(spec_id: str, repo_root: Path) -> None:
 
     print(f"=== [Tick Start] Executing OAIF bounded unit of work for {spec_id} ===")
 
-    # 1. Global Git configuration inside the ephemeral container
+    # 1. Configure Git trust and identity inside the container
     run_git_command(["config", "--global", "--add", "safe.directory", "*"], cwd=repo_root)
     run_git_command(["config", "--global", "user.name", "OAIF Ephemeral Worker"], cwd=repo_root)
     run_git_command(["config", "--global", "user.email", "worker@oaif.local"], cwd=repo_root)
 
-    # 2. Agent 1: Informal Prose Reasoner
+    # 2. Self-heal uninitialized volumes
+    if not (repo_root / ".git").exists():
+        print("[Git-Ops] No Git repository detected in volume. Initializing...")
+        run_git_command(["init", "-b", "main"], cwd=repo_root)
+        run_git_command(["add", "."], cwd=repo_root)
+        run_git_command(["commit", "-m", "chore: initialize OAIF persistent storage repository"], cwd=repo_root)
+
+    # 3. Agent 1: Informal Prose Reasoner
     print("\n--- Running Agent 1 (Prose Informal Reasoner) ---")
     prose_path = run_agent_1(spec_path, repo_root)
     print(f"Agent 1 generated: {prose_path}")
 
-    # 3. Agent 2: Executable Specification Synthesizer
+    # 4. Agent 2: Executable Specification Synthesizer
     print("\n--- Running Agent 2 (Executable Spec Synthesizer) ---")
     model_path = run_agent_2(spec_id, repo_root)
     print(f"Agent 2 generated & verified: {model_path}")
 
-    # 4. Agent 3: Tri-Consistency & Meta-Evaluator
+    # 5. Agent 3: Tri-Consistency & Meta-Evaluator
     print("\n--- Running Agent 3 (Tri-Consistency Evaluator) ---")
     eval_path = run_agent_3(spec_id, repo_root)
     print(f"Agent 3 generated: {eval_path}")
 
-    # 5. Git-Ops Audit Trail: Stage artifacts and verify cached changes
+    # 6. Git-Ops Audit Trail: Stage and commit all generated artifacts
     print("\n--- Finalizing Git-Ops Audit Commit ---")
     run_git_command(["add", "formalizations/", "agent_configs/skills/"], cwd=repo_root)
 
-    # Check specifically for staged changes ready to be committed
     staged_changes = run_git_command(["diff", "--cached", "--name-only"], cwd=repo_root)
     if staged_changes:
         commit_msg = f"audit({spec_id}): complete formalization loop and consistency evaluation"
