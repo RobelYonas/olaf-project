@@ -61,5 +61,4 @@ if __name__ == "__main__":
     parser.add_argument("--spec-id", type=str, required=True, help="Target spec ID")
     parser.add_argument("--repo-root", type=str, default=".", help="Root of Git repository")
     args = parser.parse_args()
-
     execute_bounded_tick(args.spec_id, Path(args.repo_root).resolve())
