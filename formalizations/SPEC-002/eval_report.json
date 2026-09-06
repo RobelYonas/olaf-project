@@ -1,0 +1,30 @@
+{
+  "spec_id": "SPEC-002",
+  "clausal_coverage": {
+    "total_clauses_detected": 3,
+    "clauses_mapped_to_formal_checks": 3,
+    "conformance_score": 1.0
+  },
+  "tri_consistency_scores": {
+    "understanding": 0.95,
+    "reasoning": 0.9,
+    "argumentation": 0.88,
+    "evidence_integration": 0.92,
+    "uncertainty_resolution": 0.85
+  },
+  "metrics": {
+    "informal_baseline_quality": 0.9,
+    "formal_executable_quality": 1.0,
+    "formal_minus_informal_delta": 0.1
+  },
+  "self_directed_skill_evolution": {
+    "candidate_mutations": [
+      {
+        "target_agent": "agent_2",
+        "skill_file": "agent_configs/skills/boundary_enforcement.md",
+        "proposed_directive": "Explicitly parameterize undefined boundaries using environment configs instead of inline constants."
+      }
+    ],
+    "status": "PROPOSED"
+  }
+}
